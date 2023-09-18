@@ -2,6 +2,40 @@
 
 require 'pathname'
 
+def print_version( symlink_path, version, path_only )
+    target = File.readlink( symlink_path )
+    if( path_only )
+        printf( "#{ target }\n" )
+    else
+        printf( "  Version        : #{ version }\n" )
+        printf( "  Absolute path  : #{ target }\n" )
+        printf( "  Symlink path   : #{ symlink_path }\n" )
+    end
+end
+
+def ensure_symlink_path()
+    symlink_path = File.join( Dir.home, "bin" )
+    if( not Dir.exist?( symlink_path ) )
+        Dir.mkdir( symlink_path )
+        printf( "Created directory: #{ symlink_path }\n" )
+        printf( "Make sure it's added to your PATH environment variable.\n" )
+    end
+    return symlink_path
+end
+
+def set_version( path_option )
+    symlink_path = File.join( ensure_symlink_path(), "bpt" )
+    if( File.exist?( symlink_path ) )
+        File.delete( symlink_path )
+    end
+    File.symlink( path_option[ :absolute ], symlink_path )
+
+    print_version( symlink_path, path_option[ :version ], false )
+    printf( "BPT version set!\n" )
+    
+    return 0
+end
+
 def get_display_path( path )
 
     version_str = `#{ path } --version`
@@ -17,13 +51,35 @@ def get_display_path( path )
     end
 end
 
-def work_mode_print()
-    printf( "Print it\n" )
-    return 0
+def work_mode_print( path_only )
+    symlink_path = File.join( Dir.home, "bin", "bpt" )
+    abs_path = File.readlink( symlink_path )
+    if( File.file?(abs_path) and File.executable?( abs_path ) )
+        version_str = `#{ abs_path } --version`.chomp
+        if( $?.exitstatus != 0 )
+            printf( "Cannot get version from set BPT: #{ abs_path }\n" )
+            return 3
+        end
+        print_version( symlink_path, version_str, path_only )
+        return 0
+    else
+        printf( "Set BPT path is not executable: #{ abs_path }\n" )
+        return 1
+    end
 end
 
 def work_mode_set( path_to_bpt )
-    printf( "Set it #{ path_to_bpt }\n" )
+    if( File.file?(path_to_bpt) and File.executable?( path_to_bpt ) )
+        version_str = `#{ path_to_bpt } --version`.chomp
+        if( $?.exitstatus != 0 )
+            printf( "Cannot get version from provided BPT path: #{ abs_path }\n" )
+            return 3
+        end
+        return set_version( { :absolute => path_to_bpt, :version => version_str } )
+    else
+        printf( "Provided BPT path is not executable: #{ path_to_bpt }\n" )
+        return 1
+    end
     return 0
 end
 
@@ -57,7 +113,7 @@ def work_mode_interactive()
         idx += 1
     }
     
-    printf( "=============================\nSelect an option: #{}" )
+    printf( "=============================\nSelect an option (provide index): #{}" )
     STDOUT.flush()
     selection = STDIN.gets().chomp()
     
@@ -68,24 +124,22 @@ def work_mode_interactive()
         return 1
     end
     
-    printf( "\nSelected option (write index): #{selected_index}\n" )
-    printf( "  BPT set to: [#{ options[ selected_index - 1 ][ :absolute ] }]\n" )
-
-    # if( not in path )
-    #     printf( "Put this into .zshrc" )
-    #     # export PATH=$PATH:/Users/tbari/Library/iosdefender/bin:/Users/tbari/.gem/ruby/2.6.0/bin:/Users/tbari/bin
-    # end
-
-    return 0
+    return set_version( options[ selected_index - 1 ] )
 end
 
 def work_mode_help()
     printf("
-Help!
------
+Set a symlink for a specific BPT version.
 
-Help help, help helphelp help.
-   -- Help\n"
+Usage: bpt-select [option] [path_to_bpt_exe]
+
+Available options:
+   -p                   Print info about the currently set version.
+   -s                   Set a new version interactively
+                        (will discovery available version via spotlight search).
+   -s path_to_bpt_exe   Set a specific executable (provided via next argument).
+   -h, --help           Display this help.
+\n"
     )
 
     return 0
@@ -103,7 +157,11 @@ def main()
             return work_mode_set( ARGV[1] )
         end
     elsif( ARGV[0] == "-p" )
-        return work_mode_print()
+        return work_mode_print( false )
+    elsif( ARGV[0] == "-po" )
+        return work_mode_print( true )
+    elsif( ARGV[0] == "-h" || ARGV[0] == "--help" )
+        return work_mode_help()
     else
         return work_mode_help()
     end

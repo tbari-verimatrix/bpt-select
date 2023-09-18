@@ -1,0 +1,26 @@
+#!/usr/bin/ruby
+
+require 'fileutils'
+
+if( !File.exist?( "src/bpt-select" ) )
+    printf( "src/bpt-select cannot be found. Are you in the repo's root?" )
+    return 1
+end
+
+bin_path = File.join( Dir.home(), "bin" )
+
+if( ! Dir.exists?( bin_path ) )
+    Dir.mkdir( bin_path )
+    printf( "Created directory: #{ bin_path }\n" )
+end
+
+bin_path_2 = "~/bin"
+
+path = ENV[ "PATH" ]
+
+if( !path.include?( bin_path ) && !path.include?( bin_path_2 ) )
+    printf( "NOTE: Add this to your ~/.zshrc:\nexport PATH=$PATH:#{ bin_path }\n" )
+end
+
+FileUtils.cp( "src/bpt-select", bin_path )
+printf( "bpt-select has been installed to: #{ File.join( bin_path, "bpt-select" ) }\n" )
