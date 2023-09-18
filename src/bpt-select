@@ -1,0 +1,112 @@
+#!/usr/bin/ruby
+
+require 'pathname'
+
+def get_display_path( path )
+
+    version_str = `#{ path } --version`
+    if( $?.exitstatus != 0 )
+        return nil
+    end
+
+    path_name = Pathname.new( path )
+    if( path.start_with?( Dir.home() ) )
+        return { :absolute => path, :display => "~/" + path_name.relative_path_from( Pathname.new( Dir.home() ) ).to_s(), :version => version_str.chomp }
+    else
+        return { :absolute => path, :display => path, :version => version_str }
+    end
+end
+
+def work_mode_print()
+    printf( "Print it\n" )
+    return 0
+end
+
+def work_mode_set( path_to_bpt )
+    printf( "Set it #{ path_to_bpt }\n" )
+    return 0
+end
+
+def work_mode_interactive()
+    search_results_str = `mdfind -name binary_protection 2> /dev/null`
+
+    # printf( "Results: #{ search_results_str }\n---\n\n" )
+    
+    options = []
+    
+    search_results_str.split( "\n" ).each { |result|
+        if( File.file?(result) and File.executable?( result ) )
+            option = get_display_path( result )
+            if( option != nil )
+                options += [ option ]
+            end
+        end
+    }
+    
+    max_version_str_length = 0
+    options.each { |option|
+        len = option[ :version ].length()
+        if( len > max_version_str_length )
+            max_version_str_length = len
+        end
+    }
+
+    idx = 1
+    options.each { |option|
+        printf( "#{idx} : Version: #{ option[ :version ].ljust( max_version_str_length ) }  |  #{ option[ :display ] }\n" )
+        idx += 1
+    }
+    
+    printf( "=============================\nSelect an option: #{}" )
+    STDOUT.flush()
+    selection = STDIN.gets().chomp()
+    
+    selected_index = selection.to_i()
+    
+    if( not selected_index.between?( 1, options.size() ) )
+        printf( "Invalid index, please select one between #{1} and #{options.size()}!\n" )
+        return 1
+    end
+    
+    printf( "\nSelected option (write index): #{selected_index}\n" )
+    printf( "  BPT set to: [#{ options[ selected_index - 1 ][ :absolute ] }]\n" )
+
+    # if( not in path )
+    #     printf( "Put this into .zshrc" )
+    #     # export PATH=$PATH:/Users/tbari/Library/iosdefender/bin:/Users/tbari/.gem/ruby/2.6.0/bin:/Users/tbari/bin
+    # end
+
+    return 0
+end
+
+def work_mode_help()
+    printf("
+Help!
+-----
+
+Help help, help helphelp help.
+   -- Help\n"
+    )
+
+    return 0
+end
+
+def main()
+    if( ARGV.empty? )
+        return work_mode_help()
+    end
+
+    if( ARGV[0] == "-s" )
+        if( ARGV.size() == 1 )
+            return work_mode_interactive()
+        else
+            return work_mode_set( ARGV[1] )
+        end
+    elsif( ARGV[0] == "-p" )
+        return work_mode_print()
+    else
+        return work_mode_help()
+    end
+end
+
+exit main()
